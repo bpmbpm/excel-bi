@@ -1,0 +1,882 @@
+/* styles.css — стили приложения Excel BI в стиле Apache Superset */
+
+/* ===================== СБРОС И БАЗОВЫЕ СТИЛИ ===================== */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    /* Цвета Superset */
+    --primary:       #1FA8C9;
+    --primary-dark:  #0e8fab;
+    --secondary:     #454E7C;
+    --danger:        #E04355;
+    --success:       #3DBA4E;
+    --warning:       #FCC700;
+    --info:          #66BCFE;
+
+    /* Интерфейс */
+    --bg:            #F5F5F5;
+    --sidebar-bg:    #1D1D2E;
+    --sidebar-text:  #D7D7E4;
+    --header-bg:     #20A7C9;
+    --panel-bg:      #FFFFFF;
+    --border:        #D7D7E4;
+    --text:          #323232;
+    --text-muted:    #767676;
+    --radius:        4px;
+    --shadow:        0 2px 8px rgba(0,0,0,0.1);
+
+    /* Размеры */
+    --sidebar-width: 240px;
+    --header-height: 52px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.5;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===================== ШАПКА ПРИЛОЖЕНИЯ ===================== */
+.app-header {
+    display: flex;
+    align-items: center;
+    height: var(--header-height);
+    background: var(--header-bg);
+    color: white;
+    padding: 0 16px;
+    gap: 16px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 100;
+}
+
+.app-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: white;
+    text-decoration: none;
+}
+
+.app-logo svg {
+    width: 32px;
+    height: 32px;
+}
+
+.header-nav {
+    display: flex;
+    gap: 4px;
+    margin-left: 24px;
+}
+
+.header-nav-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.85);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.header-nav-btn:hover,
+.header-nav-btn.active {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+.header-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-upload {
+    background: white;
+    color: var(--primary);
+    border: none;
+    padding: 6px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.btn-upload:hover {
+    background: #f0f0f0;
+}
+
+/* ===================== ОСНОВНОЙ МАКЕТ ===================== */
+.app-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ===================== БОКОВАЯ ПАНЕЛЬ ===================== */
+.sidebar {
+    width: var(--sidebar-width);
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.sidebar-section {
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+}
+
+.sidebar-section.active {
+    display: flex;
+}
+
+.sidebar-heading {
+    padding: 12px 16px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.5);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.sidebar-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 0;
+}
+
+.sidebar-btn {
+    width: 100%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    margin: 8px;
+    width: calc(100% - 16px);
+    border-radius: var(--radius);
+    transition: background 0.2s;
+}
+
+.sidebar-btn:hover {
+    background: var(--primary-dark);
+}
+
+/* ===================== ЭЛЕМЕНТЫ СПИСКОВ В САЙДБАРЕ ===================== */
+.dataset-item, .dashboard-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    margin: 2px 8px;
+    transition: background 0.15s;
+    gap: 8px;
+}
+
+.dataset-item:hover, .dashboard-item:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.dataset-item.active, .dashboard-item.active {
+    background: rgba(31, 168, 201, 0.3);
+    color: white;
+}
+
+.dataset-item-icon { font-size: 16px; flex-shrink: 0; }
+
+.dataset-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.dataset-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: white;
+}
+
+.dataset-item-meta {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+}
+
+.dataset-item-delete {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.dataset-item-delete:hover { color: var(--danger); }
+
+.empty-list {
+    padding: 16px;
+    text-align: center;
+    color: rgba(255,255,255,0.3);
+    font-size: 13px;
+}
+
+.dash-chart-count {
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+}
+
+/* ===================== ОСНОВНОЙ КОНТЕНТ ===================== */
+.main-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.view {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.view.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===================== ПАНЕЛЬ ДАННЫХ (DATASETS VIEW) ===================== */
+.datasets-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    flex: 1;
+}
+
+.panel {
+    background: var(--panel-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.panel-body {
+    padding: 16px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* ===================== ЗОНА ЗАГРУЗКИ ФАЙЛА ===================== */
+#upload-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-muted);
+    background: #FAFAFA;
+}
+
+#upload-drop-zone:hover,
+#upload-drop-zone.drag-over {
+    border-color: var(--primary);
+    background: rgba(31, 168, 201, 0.05);
+    color: var(--primary);
+}
+
+#upload-drop-zone .upload-icon { font-size: 48px; margin-bottom: 12px; }
+#upload-drop-zone p { margin-bottom: 8px; }
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover { background: var(--primary-dark); }
+
+.btn-secondary {
+    background: white;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.btn-secondary:hover { background: #f5f5f5; }
+
+.upload-success { color: var(--success); margin-top: 8px; font-weight: 500; }
+.upload-progress { color: var(--primary); margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+
+/* ===================== ПРЕДПРОСМОТР ДАТАСЕТА ===================== */
+.preview-header { margin-bottom: 12px; }
+.preview-header h3 { font-size: 16px; margin-bottom: 8px; }
+
+.preview-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+.stat-badge {
+    background: rgba(31, 168, 201, 0.1);
+    color: var(--primary);
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.columns-info { margin-bottom: 16px; }
+.columns-info h4, .data-table-wrapper h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-muted); }
+
+.columns-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.column-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+}
+
+.column-badge.type-number { background: #EFF8FF; border-color: #B3D9F5; color: #1565C0; }
+.column-badge.type-string { background: #F5F5F5; border-color: #D7D7E4; color: var(--text); }
+.column-badge.type-date   { background: #FFF8E1; border-color: #FFE082; color: #E65100; }
+
+.col-type-label {
+    font-size: 10px;
+    opacity: 0.7;
+    margin-left: 2px;
+}
+
+/* ===================== ТАБЛИЦА ДАННЫХ ===================== */
+.data-table-scroll { overflow-x: auto; }
+
+.data-table, .chart-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.data-table th, .chart-table th {
+    background: #F5F5F5;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.data-table td, .chart-table td {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.data-table tr:nth-child(even) td,
+.chart-table tr:nth-child(even) td {
+    background: #FAFAFA;
+}
+
+.more-rows {
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* ===================== РЕДАКТОР ГРАФИКА ===================== */
+.chart-editor-view {
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.chart-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.chart-editor-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.editor-section {
+    background: var(--panel-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.editor-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Выбор типа графика */
+#chart-type-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.chart-type-btn {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 12px;
+    min-width: 90px;
+    transition: all 0.2s;
+    color: var(--text);
+}
+
+.chart-type-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.chart-type-btn.active {
+    border-color: var(--primary);
+    background: rgba(31, 168, 201, 0.08);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.chart-type-btn span { display: block; margin-top: 4px; }
+
+/* Форма настроек */
+.form-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    align-items: center;
+}
+
+.form-row label {
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 140px;
+    color: var(--text);
+}
+
+.form-row input[type="text"],
+.form-row select {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    background: white;
+    color: var(--text);
+}
+
+.form-row input[type="text"]:focus,
+.form-row select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.form-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Список Y-колонок */
+.y-columns-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 150px;
+    overflow-y: auto;
+    background: #FAFAFA;
+}
+
+.y-col-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: white;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.y-col-checkbox:hover { border-color: var(--primary); }
+
+/* ===================== ГАЛЕРЕЯ ГРАФИКОВ ===================== */
+.explore-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.explore-toolbar h2 {
+    font-size: 20px;
+    font-weight: 700;
+    flex: 1;
+}
+
+#chart-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+    gap: 16px;
+}
+
+.chart-card {
+    background: var(--panel-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.chart-card-title {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.chart-card-type {
+    padding: 2px 14px;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: #FAFAFA;
+}
+
+.chart-card-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.chart-canvas-wrapper {
+    padding: 12px;
+    flex: 1;
+}
+
+.chart-canvas {
+    width: 100% !important;
+    height: 280px !important;
+}
+
+.chart-canvas-area {
+    width: 100%;
+    min-height: 200px;
+    overflow-y: auto;
+}
+
+.table-chart-wrapper { overflow-x: auto; }
+
+/* ===================== КНОПКИ ДЕЙСТВИЙ ===================== */
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 3px;
+    font-size: 14px;
+    line-height: 1;
+    transition: background 0.15s;
+    color: var(--text);
+}
+
+.btn-icon:hover { background: rgba(0,0,0,0.08); }
+
+.btn-icon.btn-danger:hover { background: rgba(224,67,85,0.1); }
+
+.btn-icon.btn-sm { font-size: 12px; padding: 2px 4px; }
+
+/* ===================== ДАШБОРД ===================== */
+.dashboard-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.dashboard-toolbar h2 {
+    font-size: 20px;
+    font-weight: 700;
+    flex: 1;
+}
+
+#dashboard-canvas {
+    flex: 1;
+}
+
+.dashboard-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.dashboard-chart-item {
+    background: var(--panel-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.dashboard-chart-body {
+    padding: 12px;
+    flex: 1;
+}
+
+/* ===================== ПУСТЫЕ СОСТОЯНИЯ ===================== */
+.empty-gallery,
+.empty-dashboard,
+.empty-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+
+/* ===================== УВЕДОМЛЕНИЯ ===================== */
+#notifications {
+    position: fixed;
+    top: 60px;
+    right: 16px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.notification {
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+    font-size: 13px;
+    font-weight: 500;
+    max-width: 320px;
+    animation: slideIn 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: white;
+}
+
+.notification.success { background: var(--success); }
+.notification.error   { background: var(--danger); }
+.notification.warning { background: var(--warning); color: var(--text); }
+.notification.info    { background: var(--info); color: var(--text); }
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ===================== МОДАЛЬНОЕ ОКНО ===================== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+}
+
+.modal {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    width: 520px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+.modal-body { padding: 20px; }
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+}
+
+/* ===================== СПИННЕР ===================== */
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(31, 168, 201, 0.2);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ===================== НАСТРОЙКИ СЕТКИ ===================== */
+.columns-selector {
+    display: flex;
+    gap: 4px;
+}
+
+.col-btn {
+    background: white;
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.col-btn.active,
+.col-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* ===================== ТАБЛИЦА ГРАФИКА ===================== */
+.table-chart-container {
+    width: 100%;
+    max-height: 280px;
+    overflow: auto;
+}
+
+/* ===================== АДАПТИВНОСТЬ ===================== */
+@media (max-width: 768px) {
+    .sidebar { display: none; }
+    .datasets-layout { grid-template-columns: 1fr; }
+    #chart-gallery { grid-template-columns: 1fr; }
+    .dashboard-grid { grid-template-columns: 1fr !important; }
+    .header-nav { display: none; }
+}
