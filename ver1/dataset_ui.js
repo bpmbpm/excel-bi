@@ -7,39 +7,11 @@
  * Вызывается при загрузке приложения.
  */
 function initDatasetUI() {
-    setupFileUploadDragDrop();
     renderDatasetList();
 }
 
 /**
- * Настраивает перетаскивание файлов (drag & drop) в зону загрузки.
- */
-function setupFileUploadDragDrop() {
-    var dropZone = document.getElementById('upload-drop-zone');
-    if (!dropZone) return;
-
-    dropZone.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-    });
-
-    dropZone.addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-    });
-
-    dropZone.addEventListener('drop', function(e) {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        var files = e.dataTransfer.files;
-        if (files && files.length > 0) {
-            handleFileSelected(files[0]);
-        }
-    });
-}
-
-/**
- * Обрабатывает выбор файла через input или drag&drop.
+ * Обрабатывает выбор файла через input или drag&drop (без дополнительных настроек).
  * @param {File} file - Выбранный файл
  */
 function handleFileSelected(file) {
@@ -57,18 +29,38 @@ function handleFileSelected(file) {
 }
 
 /**
+ * Обрабатывает загрузку файла с расширенными настройками из модального окна.
+ * Вызывается при нажатии кнопки «Загрузить» в модальном окне.
+ * @param {File} file - Выбранный файл
+ * @param {Object} options - Настройки загрузки из формы
+ * @param {string} uploadType - Тип загрузки: 'csv', 'excel', 'columnar'
+ */
+function handleFileSelectedWithOptions(file, options, uploadType) {
+    showUploadProgress(file.name);
+    loadFileWithOptions(file, options, uploadType, function(dataset) {
+        hideUploadProgress();
+        showUploadSuccess(dataset);
+        renderDatasetList();
+        renderDatasetPreview(dataset);
+        var typeLabel = uploadType === 'excel' ? 'Excel' : (uploadType === 'columnar' ? 'Columnar' : 'CSV');
+        showNotification(typeLabel + ': датасет "' + dataset.name + '" загружен (' + dataset.rowCount + ' строк)', 'success');
+    }, function(errorMsg) {
+        hideUploadProgress();
+        showNotification('Ошибка загрузки: ' + errorMsg, 'error');
+    });
+}
+
+/**
  * Показывает индикатор прогресса загрузки.
  * @param {string} fileName - Имя загружаемого файла
  */
 function showUploadProgress(fileName) {
-    var uploadArea = document.getElementById('upload-area');
-    if (uploadArea) {
-        var progressHtml = '<div class="upload-progress">' +
+    var progressEl = document.getElementById('upload-progress-msg');
+    if (progressEl) {
+        progressEl.innerHTML = '<div class="upload-progress">' +
             '<div class="spinner"></div>' +
             '<span>Загрузка файла: ' + escapeHtml(fileName) + '...</span>' +
             '</div>';
-        var progressEl = document.getElementById('upload-progress-msg');
-        if (progressEl) progressEl.innerHTML = progressHtml;
     }
 }
 
@@ -240,17 +232,62 @@ function clearDatasetPreview() {
 
 /**
  * Открывает модальное окно загрузки датасета.
+ * @param {string} tabType - Тип вкладки для открытия: 'csv', 'excel', 'columnar'.
+ *                           По умолчанию открывается вкладка 'csv'.
  */
-function openUploadModal() {
+function openUploadModal(tabType) {
     var modal = document.getElementById('upload-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        // Сбрасываем состояние input
-        var fileInput = document.getElementById('file-input');
-        if (fileInput) fileInput.value = '';
-        var progressEl = document.getElementById('upload-progress-msg');
-        if (progressEl) progressEl.innerHTML = '';
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+
+    // Переключаем нужную вкладку
+    var type = tabType || 'csv';
+    if (typeof switchUploadTab === 'function') {
+        switchUploadTab(type);
     }
+
+    // Сбрасываем зоны перетаскивания до исходного вида
+    resetDropZone('csv');
+    resetDropZone('excel');
+    resetDropZone('columnar');
+
+    // Сбрасываем file inputs и файлы из drag&drop
+    var types = ['csv', 'excel', 'columnar'];
+    for (var i = 0; i < types.length; i++) {
+        var fileInput = document.getElementById('file-input-' + types[i]);
+        if (fileInput) fileInput.value = '';
+    }
+
+    // Очищаем сохранённые drag&drop файлы
+    if (typeof DRAGGED_FILES !== 'undefined') {
+        DRAGGED_FILES = {};
+    }
+}
+
+/**
+ * Сбрасывает зону перетаскивания до исходного вида.
+ * @param {string} uploadType - Тип загрузки: 'csv', 'excel', 'columnar'
+ */
+function resetDropZone(uploadType) {
+    var dropZone = document.getElementById('drop-zone-' + uploadType);
+    if (!dropZone) return;
+
+    var icons = { csv: '📄', excel: '📊', columnar: '🗂' };
+    var texts = {
+        csv: 'CSV-файл (.csv, до 50 МБ)',
+        excel: 'Excel-файл (.xlsx, .xls, до 50 МБ)',
+        columnar: 'колоночный файл (.csv, .tsv, .json, до 50 МБ)'
+    };
+    var icon = icons[uploadType] || '📂';
+    var hint = texts[uploadType] || 'файл';
+
+    dropZone.style.borderColor = '';
+    dropZone.innerHTML =
+        '<div class="upload-drop-icon">' + icon + '</div>' +
+        '<p><strong>Перетащите ' + hint + ' сюда</strong></p>' +
+        '<p>или нажмите для выбора файла</p>' +
+        '<p class="upload-hint">Поддерживается: ' + hint + '</p>';
 }
 
 /**
