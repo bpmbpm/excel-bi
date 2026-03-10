@@ -872,6 +872,247 @@ body {
     overflow: auto;
 }
 
+/* ===================== ВЫПАДАЮЩЕЕ МЕНЮ ЗАГРУЗКИ В ШАПКЕ ===================== */
+.upload-menu-container {
+    position: relative;
+}
+
+.upload-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    min-width: 200px;
+    z-index: 200;
+    overflow: hidden;
+}
+
+.upload-dropdown-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text);
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.upload-dropdown-item:hover {
+    background: rgba(31, 168, 201, 0.08);
+    color: var(--primary);
+}
+
+/* ===================== КНОПКИ ЗАГРУЗКИ В САЙДБАРЕ ===================== */
+.sidebar-upload-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+}
+
+.sidebar-upload-group .sidebar-btn {
+    margin: 0;
+    width: 100%;
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+.sidebar-btn-csv    { background: var(--primary); }
+.sidebar-btn-excel  { background: #227447; }
+.sidebar-btn-columnar { background: var(--secondary); }
+
+.sidebar-btn-excel:hover  { background: #185c38; }
+.sidebar-btn-columnar:hover { background: #3a4270; }
+
+/* ===================== КАРТОЧКИ ВЫБОРА ТИПА ЗАГРУЗКИ ===================== */
+.upload-options-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.upload-option-card {
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #FAFAFA;
+}
+
+.upload-option-card:hover {
+    border-color: var(--primary);
+    background: rgba(31, 168, 201, 0.05);
+}
+
+.upload-option-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.upload-option-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: var(--text);
+}
+
+.upload-option-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* ===================== МОДАЛЬНОЕ ОКНО ЗАГРУЗКИ (ОБНОВЛЁННОЕ) ===================== */
+.modal-upload {
+    width: 640px;
+    max-width: 96vw;
+}
+
+/* Вкладки типов загрузки */
+.upload-tabs {
+    display: flex;
+    gap: 0;
+    flex: 1;
+    margin-right: 16px;
+}
+
+.upload-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0 16px;
+    height: 100%;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.75);
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.upload-tab:hover {
+    color: white;
+    background: rgba(255,255,255,0.1);
+}
+
+.upload-tab.active {
+    color: white;
+    border-bottom-color: white;
+    font-weight: 700;
+}
+
+/* Заголовок модального окна с вкладками */
+.modal-upload .modal-header {
+    background: var(--header-bg);
+    color: white;
+    border-bottom: none;
+    padding: 0 20px;
+    height: 48px;
+    display: flex;
+    align-items: stretch;
+}
+
+.modal-upload .modal-close {
+    color: rgba(255,255,255,0.8);
+    font-size: 22px;
+    line-height: 1;
+    align-self: center;
+}
+
+.modal-upload .modal-close:hover {
+    color: white;
+}
+
+/* Панели вкладок */
+.upload-panel {
+    display: none;
+}
+
+.upload-panel.active {
+    display: block;
+}
+
+/* Зона перетаскивания в модальном окне */
+.upload-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-muted);
+    background: #FAFAFA;
+    margin-bottom: 16px;
+}
+
+.upload-drop-zone:hover {
+    border-color: var(--primary);
+    background: rgba(31, 168, 201, 0.05);
+    color: var(--primary);
+}
+
+.upload-drop-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+}
+
+.upload-hint {
+    font-size: 11px;
+    margin-top: 6px;
+    color: #999;
+}
+
+/* Секции формы внутри модального окна */
+.upload-form-section {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: #FAFAFA;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.upload-form-heading {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+/* Метки полей формы в модальном окне загрузки */
+.upload-label {
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 200px;
+    color: var(--text);
+    flex-shrink: 0;
+}
+
+/* Поля ввода в форме загрузки */
+.upload-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    background: white;
+    color: var(--text);
+}
+
+.upload-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
 /* ===================== АДАПТИВНОСТЬ ===================== */
 @media (max-width: 768px) {
     .sidebar { display: none; }
@@ -879,4 +1120,8 @@ body {
     #chart-gallery { grid-template-columns: 1fr; }
     .dashboard-grid { grid-template-columns: 1fr !important; }
     .header-nav { display: none; }
+    .upload-options-grid { grid-template-columns: 1fr; }
+    .upload-tabs { gap: 0; }
+    .upload-tab { padding: 0 8px; font-size: 12px; }
+    .upload-label { min-width: 120px; }
 }

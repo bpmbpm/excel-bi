@@ -48,6 +48,446 @@ function loadExcelFile(file, onSuccess, onError) {
 }
 
 /**
+ * Загружает файл с расширенными настройками (Upload CSV / Upload Excel / Upload Columnar).
+ * @param {File} file - Объект файла из input[type=file]
+ * @param {Object} options - Настройки загрузки (delimiter, skipRows, sheetName и др.)
+ * @param {string} uploadType - Тип загрузки: 'csv', 'excel', 'columnar'
+ * @param {Function} onSuccess - Функция обратного вызова при успехе (dataset)
+ * @param {Function} onError - Функция обратного вызова при ошибке (message)
+ */
+function loadFileWithOptions(file, options, uploadType, onSuccess, onError) {
+    // Проверяем размер файла
+    var maxSize = (window.CONFIG && window.CONFIG.maxFileSizeBytes) ? window.CONFIG.maxFileSizeBytes : 52428800;
+    if (file.size > maxSize) {
+        onError('Файл слишком большой. Максимальный размер: ' + Math.round(maxSize / 1048576) + ' МБ');
+        return;
+    }
+
+    var name = file.name.toLowerCase();
+
+    // Проверяем допустимые расширения для каждого типа загрузки
+    if (uploadType === 'csv' && !name.endsWith('.csv')) {
+        onError('Для Upload CSV выберите файл .csv');
+        return;
+    }
+    if (uploadType === 'excel' && !name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+        onError('Для Upload Excel выберите файл .xlsx или .xls');
+        return;
+    }
+    if (uploadType === 'columnar' &&
+        !name.endsWith('.csv') && !name.endsWith('.tsv') && !name.endsWith('.json')) {
+        onError('Для Upload Columnar выберите файл .csv, .tsv или .json');
+        return;
+    }
+
+    // Колоночный JSON читаем как текст
+    if (uploadType === 'columnar' && name.endsWith('.json')) {
+        var textReader = new FileReader();
+        textReader.onload = function(e) {
+            try {
+                var dataset = parseColumnarJson(e.target.result, file.name, options);
+                onSuccess(dataset);
+            } catch (err) {
+                onError('Ошибка при чтении JSON: ' + err.message);
+            }
+        };
+        textReader.onerror = function() {
+            onError('Ошибка при чтении файла');
+        };
+        textReader.readAsText(file, 'UTF-8');
+        return;
+    }
+
+    // TSV-файл для колоночного формата
+    if (uploadType === 'columnar' && name.endsWith('.tsv')) {
+        var tsvOptions = { delimiter: '\t', skipRows: options.skipRows || 0, rowsToRead: options.rowsToRead || 0,
+                           tableName: options.tableName, columnsToRead: options.columnsToRead };
+        var tsvReader = new FileReader();
+        tsvReader.onload = function(e) {
+            try {
+                var dataset = parseCsvData(e.target.result, file.name, tsvOptions);
+                onSuccess(dataset);
+            } catch (err) {
+                onError('Ошибка при чтении TSV: ' + err.message);
+            }
+        };
+        tsvReader.onerror = function() {
+            onError('Ошибка при чтении файла');
+        };
+        tsvReader.readAsText(file, 'UTF-8');
+        return;
+    }
+
+    // Все остальные форматы (xlsx, xls, csv) читаем через ArrayBuffer и SheetJS
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            var dataset = parseFileWithOptions(e.target.result, file.name, options, uploadType);
+            onSuccess(dataset);
+        } catch (err) {
+            onError('Ошибка при чтении файла: ' + err.message);
+        }
+    };
+    reader.onerror = function() {
+        onError('Ошибка при чтении файла');
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+/**
+ * Парсит файл (Excel/CSV) с учётом расширенных настроек.
+ * @param {ArrayBuffer} buffer - Содержимое файла
+ * @param {string} fileName - Имя файла
+ * @param {Object} options - Настройки загрузки
+ * @param {string} uploadType - Тип загрузки
+ * @returns {Object} Объект датасета
+ */
+function parseFileWithOptions(buffer, fileName, options, uploadType) {
+    var name = fileName.toLowerCase();
+    var isCsv = name.endsWith('.csv');
+    var opts = options || {};
+
+    // Настройки чтения SheetJS
+    var readOpts = { type: 'array', cellDates: true };
+    var workbook = XLSX.read(buffer, readOpts);
+
+    // Определяем лист для Excel
+    var sheetName = workbook.SheetNames[0];
+    if (opts.sheetName && opts.sheetName.trim() !== '') {
+        // Ищем лист по имени (без учёта регистра)
+        var requestedSheet = opts.sheetName.trim().toLowerCase();
+        for (var s = 0; s < workbook.SheetNames.length; s++) {
+            if (workbook.SheetNames[s].toLowerCase() === requestedSheet) {
+                sheetName = workbook.SheetNames[s];
+                break;
+            }
+        }
+    }
+
+    var worksheet = workbook.Sheets[sheetName];
+
+    // Определяем строку заголовка
+    var headerRow = opts.headerRow;
+    var sheetToJsonOpts = { defval: null, raw: false };
+    if (headerRow === 'none') {
+        sheetToJsonOpts.header = 1;
+    } else {
+        var headerNum = parseInt(headerRow);
+        if (!isNaN(headerNum) && headerNum > 0) {
+            sheetToJsonOpts.header = headerNum + 1;
+        }
+    }
+
+    var rows = XLSX.utils.sheet_to_json(worksheet, sheetToJsonOpts);
+
+    if (rows.length === 0) {
+        throw new Error('Файл не содержит данных');
+    }
+
+    // Для headerRow='none' SheetJS вернёт массивы — конвертируем в объекты
+    if (headerRow === 'none' && Array.isArray(rows[0])) {
+        rows = convertArrayRowsToObjects(rows);
+    }
+
+    // Пропускаем строки (skipRows)
+    var skipRows = parseInt(opts.skipRows) || 0;
+    if (skipRows > 0 && skipRows < rows.length) {
+        rows = rows.slice(skipRows);
+    }
+
+    // Ограничиваем количество строк (rowsToRead)
+    var rowsToRead = parseInt(opts.rowsToRead) || 0;
+    if (rowsToRead > 0 && rowsToRead < rows.length) {
+        rows = rows.slice(0, rowsToRead);
+    }
+
+    // Фильтруем по выбранным колонкам (columnsToRead для columnar)
+    if (opts.columnsToRead && opts.columnsToRead.trim() !== '') {
+        var selectedCols = opts.columnsToRead.split(',');
+        for (var ci = 0; ci < selectedCols.length; ci++) {
+            selectedCols[ci] = selectedCols[ci].trim();
+        }
+        rows = filterRowColumns(rows, selectedCols);
+    }
+
+    if (rows.length === 0) {
+        throw new Error('После применения настроек данные отсутствуют');
+    }
+
+    // Определяем колонки и их типы
+    var columns = detectColumns(rows);
+
+    // Применяем явное задание типов колонок (colTypes для columnar)
+    if (opts.colTypes && opts.colTypes.trim() !== '') {
+        try {
+            var typesMap = JSON.parse(opts.colTypes);
+            columns = applyColumnTypes(columns, typesMap);
+        } catch (e) {
+            // Игнорируем ошибки разбора JSON типов
+        }
+    }
+
+    // Явные даты из dateColumns (для CSV и Excel)
+    if (opts.dateColumns && opts.dateColumns.trim() !== '') {
+        var dateCols = opts.dateColumns.split(',');
+        for (var di = 0; di < dateCols.length; di++) {
+            var dateColName = dateCols[di].trim();
+            for (var cj = 0; cj < columns.length; cj++) {
+                if (columns[cj].name === dateColName) {
+                    columns[cj].type = 'date';
+                    break;
+                }
+            }
+        }
+    }
+
+    // Создаём датасет
+    DATASET_ID_COUNTER++;
+    var datasetId = 'dataset_' + DATASET_ID_COUNTER + '_' + Date.now();
+    var tableName = (opts.tableName && opts.tableName.trim() !== '') ?
+        opts.tableName.trim() :
+        fileName.replace(/\.[^.]+$/, '');
+
+    var dataset = {
+        id: datasetId,
+        name: tableName,
+        fileName: fileName,
+        sheetName: sheetName,
+        sheetNames: workbook.SheetNames,
+        uploadType: uploadType,
+        columns: columns,
+        rows: rows,
+        rowCount: rows.length,
+        createdAt: new Date().toISOString()
+    };
+
+    DATASETS[datasetId] = dataset;
+    CURRENT_DATASET_ID = datasetId;
+
+    return dataset;
+}
+
+/**
+ * Парсит JSON-файл в колоночном формате.
+ * Поддерживает: массив объектов [{"col":val,...},...] и объект {"col":[val,...],...}
+ * @param {string} text - Текст JSON-файла
+ * @param {string} fileName - Имя файла
+ * @param {Object} options - Настройки загрузки
+ * @returns {Object} Объект датасета
+ */
+function parseColumnarJson(text, fileName, options) {
+    var opts = options || {};
+    var parsed = JSON.parse(text);
+    var rows = [];
+
+    // Формат: массив объектов
+    if (Array.isArray(parsed)) {
+        rows = parsed;
+    }
+    // Формат: объект {"column": [values...], ...}
+    else if (typeof parsed === 'object' && parsed !== null) {
+        var colKeys = Object.keys(parsed);
+        if (colKeys.length > 0 && Array.isArray(parsed[colKeys[0]])) {
+            var rowCount = parsed[colKeys[0]].length;
+            for (var r = 0; r < rowCount; r++) {
+                var row = {};
+                for (var c = 0; c < colKeys.length; c++) {
+                    row[colKeys[c]] = parsed[colKeys[c]][r];
+                }
+                rows.push(row);
+            }
+        } else {
+            // Одна строка-объект — превращаем в массив
+            rows = [parsed];
+        }
+    }
+
+    if (rows.length === 0) {
+        throw new Error('JSON-файл не содержит данных');
+    }
+
+    // Фильтруем по выбранным колонкам
+    if (opts.columnsToRead && opts.columnsToRead.trim() !== '') {
+        var selectedCols = opts.columnsToRead.split(',');
+        for (var ci = 0; ci < selectedCols.length; ci++) {
+            selectedCols[ci] = selectedCols[ci].trim();
+        }
+        rows = filterRowColumns(rows, selectedCols);
+    }
+
+    var columns = detectColumns(rows);
+
+    // Применяем явное задание типов
+    if (opts.colTypes && opts.colTypes.trim() !== '') {
+        try {
+            var typesMap = JSON.parse(opts.colTypes);
+            columns = applyColumnTypes(columns, typesMap);
+        } catch (e) {
+            // Игнорируем ошибки разбора
+        }
+    }
+
+    DATASET_ID_COUNTER++;
+    var datasetId = 'dataset_' + DATASET_ID_COUNTER + '_' + Date.now();
+    var tableName = (opts.tableName && opts.tableName.trim() !== '') ?
+        opts.tableName.trim() :
+        fileName.replace(/\.[^.]+$/, '');
+
+    var dataset = {
+        id: datasetId,
+        name: tableName,
+        fileName: fileName,
+        uploadType: 'columnar',
+        columns: columns,
+        rows: rows,
+        rowCount: rows.length,
+        createdAt: new Date().toISOString()
+    };
+
+    DATASETS[datasetId] = dataset;
+    CURRENT_DATASET_ID = datasetId;
+
+    return dataset;
+}
+
+/**
+ * Парсит CSV/TSV текстовый файл.
+ * @param {string} text - Текст файла
+ * @param {string} fileName - Имя файла
+ * @param {Object} options - Настройки загрузки
+ * @returns {Object} Объект датасета
+ */
+function parseCsvData(text, fileName, options) {
+    var opts = options || {};
+    var delimiter = opts.delimiter || ',';
+
+    // Читаем через SheetJS из текстовой строки
+    var workbook = XLSX.read(text, { type: 'string', FS: delimiter, cellDates: true });
+    var sheetName = workbook.SheetNames[0];
+    var worksheet = workbook.Sheets[sheetName];
+    var rows = XLSX.utils.sheet_to_json(worksheet, { defval: null, raw: false });
+
+    if (rows.length === 0) {
+        throw new Error('Файл не содержит данных');
+    }
+
+    // Пропускаем строки
+    var skipRows = parseInt(opts.skipRows) || 0;
+    if (skipRows > 0 && skipRows < rows.length) {
+        rows = rows.slice(skipRows);
+    }
+
+    // Ограничиваем количество строк
+    var rowsToRead = parseInt(opts.rowsToRead) || 0;
+    if (rowsToRead > 0 && rowsToRead < rows.length) {
+        rows = rows.slice(0, rowsToRead);
+    }
+
+    // Фильтруем по выбранным колонкам
+    if (opts.columnsToRead && opts.columnsToRead.trim() !== '') {
+        var selectedCols = opts.columnsToRead.split(',');
+        for (var ci = 0; ci < selectedCols.length; ci++) {
+            selectedCols[ci] = selectedCols[ci].trim();
+        }
+        rows = filterRowColumns(rows, selectedCols);
+    }
+
+    if (rows.length === 0) {
+        throw new Error('После применения настроек данные отсутствуют');
+    }
+
+    var columns = detectColumns(rows);
+
+    DATASET_ID_COUNTER++;
+    var datasetId = 'dataset_' + DATASET_ID_COUNTER + '_' + Date.now();
+    var tableName = (opts.tableName && opts.tableName.trim() !== '') ?
+        opts.tableName.trim() :
+        fileName.replace(/\.[^.]+$/, '');
+
+    var dataset = {
+        id: datasetId,
+        name: tableName,
+        fileName: fileName,
+        uploadType: 'columnar',
+        columns: columns,
+        rows: rows,
+        rowCount: rows.length,
+        createdAt: new Date().toISOString()
+    };
+
+    DATASETS[datasetId] = dataset;
+    CURRENT_DATASET_ID = datasetId;
+
+    return dataset;
+}
+
+/**
+ * Конвертирует строки в виде массивов (при отсутствии заголовков)
+ * в массив объектов с автоматическими именами колонок (Column 1, Column 2, ...).
+ * @param {Array} arrayRows - Массив массивов значений
+ * @returns {Array} Массив объектов
+ */
+function convertArrayRowsToObjects(arrayRows) {
+    if (arrayRows.length === 0) return [];
+    var firstRow = arrayRows[0];
+    var colNames = [];
+    for (var i = 0; i < firstRow.length; i++) {
+        colNames.push('Column ' + (i + 1));
+    }
+
+    var result = [];
+    for (var r = 0; r < arrayRows.length; r++) {
+        var obj = {};
+        for (var c = 0; c < colNames.length; c++) {
+            obj[colNames[c]] = arrayRows[r][c] !== undefined ? arrayRows[r][c] : null;
+        }
+        result.push(obj);
+    }
+    return result;
+}
+
+/**
+ * Фильтрует строки, оставляя только указанные колонки.
+ * @param {Array} rows - Массив строк
+ * @param {Array} selectedCols - Список имён колонок для сохранения
+ * @returns {Array} Отфильтрованные строки
+ */
+function filterRowColumns(rows, selectedCols) {
+    if (!selectedCols || selectedCols.length === 0) return rows;
+    var result = [];
+    for (var r = 0; r < rows.length; r++) {
+        var newRow = {};
+        for (var c = 0; c < selectedCols.length; c++) {
+            var colName = selectedCols[c];
+            if (rows[r].hasOwnProperty(colName)) {
+                newRow[colName] = rows[r][colName];
+            }
+        }
+        result.push(newRow);
+    }
+    return result;
+}
+
+/**
+ * Применяет явно заданные типы колонок.
+ * @param {Array} columns - Массив колонок датасета
+ * @param {Object} typesMap - Объект {имяКолонки: тип}, тип: 'number', 'date', 'string'
+ * @returns {Array} Обновлённый массив колонок
+ */
+function applyColumnTypes(columns, typesMap) {
+    for (var i = 0; i < columns.length; i++) {
+        var colName = columns[i].name;
+        if (typesMap.hasOwnProperty(colName)) {
+            var t = String(typesMap[colName]).toLowerCase();
+            if (t === 'number' || t === 'date' || t === 'string') {
+                columns[i].type = t;
+            }
+        }
+    }
+    return columns;
+}
+
+/**
  * Парсит данные Excel/CSV и возвращает объект датасета.
  * @param {ArrayBuffer} buffer - Содержимое файла
  * @param {string} fileName - Имя файла
