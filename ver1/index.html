@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel BI — Аналог Apache Superset</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Настройки приложения (загружается до всех скриптов для обхода CORS при работе через file://) -->
+    <script src="config.js"></script>
+    <!-- SheetJS — чтение Excel-файлов (xlsx, xls, csv) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Chart.js — визуализация данных -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- ШАПКА ПРИЛОЖЕНИЯ (аналог заголовка Apache Superset)         -->
+<!-- ============================================================ -->
+<header class="app-header">
+    <a class="app-logo" href="#" onclick="showView('datasets-view'); return false;">
+        <!-- Иконка диаграммы -->
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="32" rx="6" fill="white" fill-opacity="0.15"/>
+            <rect x="6" y="18" width="5" height="8" rx="1" fill="white"/>
+            <rect x="13" y="12" width="5" height="14" rx="1" fill="white"/>
+            <rect x="20" y="6" width="5" height="20" rx="1" fill="white"/>
+        </svg>
+        Excel BI
+    </a>
+
+    <!-- Навигационные вкладки (аналог меню Superset) -->
+    <nav class="header-nav">
+        <button class="header-nav-btn active" id="nav-datasets"
+                onclick="navigateTo('datasets')">
+            Данные
+        </button>
+        <button class="header-nav-btn" id="nav-explore"
+                onclick="navigateTo('explore')">
+            Графики
+        </button>
+        <button class="header-nav-btn" id="nav-dashboard"
+                onclick="navigateTo('dashboard')">
+            Дашборды
+        </button>
+    </nav>
+
+    <!-- Кнопки шапки -->
+    <div class="header-actions">
+        <button class="btn-upload" onclick="openUploadModal()">
+            + Загрузить данные
+        </button>
+    </div>
+</header>
+
+<!-- ============================================================ -->
+<!-- ОСНОВНОЙ МАКЕТ: САЙДБАР + КОНТЕНТ                           -->
+<!-- ============================================================ -->
+<div class="app-layout">
+
+    <!-- === БОКОВАЯ ПАНЕЛЬ === -->
+    <aside class="sidebar">
+
+        <!-- Секция датасетов -->
+        <div class="sidebar-section active" id="sidebar-datasets">
+            <div class="sidebar-heading">Датасеты</div>
+            <button class="sidebar-btn" onclick="openUploadModal()">
+                + Загрузить Excel
+            </button>
+            <div class="sidebar-list" id="dataset-list">
+                <div class="empty-list">Нет загруженных датасетов</div>
+            </div>
+        </div>
+
+        <!-- Секция графиков -->
+        <div class="sidebar-section" id="sidebar-explore">
+            <div class="sidebar-heading">Графики</div>
+            <button class="sidebar-btn" onclick="openNewChartEditor()">
+                + Добавить график
+            </button>
+            <div class="sidebar-list">
+                <div class="empty-list" id="chart-sidebar-hint">
+                    Загрузите датасет и создайте график
+                </div>
+            </div>
+        </div>
+
+        <!-- Секция дашбордов -->
+        <div class="sidebar-section" id="sidebar-dashboard">
+            <div class="sidebar-heading">Дашборды</div>
+            <button class="sidebar-btn" onclick="promptCreateDashboard()">
+                + Новый дашборд
+            </button>
+            <div class="sidebar-list" id="dashboard-list"></div>
+        </div>
+
+    </aside>
+
+    <!-- === ОСНОВНОЙ КОНТЕНТ === -->
+    <main class="main-content">
+
+        <!-- ================================================ -->
+        <!-- ВКЛАДКА: ДАННЫЕ (аналог Data > Datasets Superset)-->
+        <!-- ================================================ -->
+        <div class="view active" id="datasets-view">
+            <div class="datasets-layout">
+
+                <!-- Панель загрузки файла -->
+                <div class="panel">
+                    <div class="panel-header">
+                        📂 Загрузка датасета
+                    </div>
+                    <div class="panel-body">
+                        <!-- Зона перетаскивания файла -->
+                        <div id="upload-drop-zone"
+                             onclick="document.getElementById('file-input').click()">
+                            <div class="upload-icon">📊</div>
+                            <p><strong>Перетащите Excel-файл сюда</strong></p>
+                            <p>или нажмите для выбора файла</p>
+                            <p style="font-size:12px; margin-top:8px; color:#999">
+                                Поддерживаются форматы: .xlsx, .xls, .csv
+                            </p>
+                        </div>
+                        <!-- Скрытый input для выбора файла -->
+                        <input type="file" id="file-input"
+                               accept=".xlsx,.xls,.csv"
+                               style="display:none"
+                               onchange="handleFileInputChange(event)">
+                        <!-- Статус загрузки -->
+                        <div id="upload-progress-msg"></div>
+                    </div>
+                </div>
+
+                <!-- Панель предпросмотра датасета -->
+                <div class="panel">
+                    <div class="panel-header">
+                        👁 Предпросмотр датасета
+                    </div>
+                    <div class="panel-body" id="dataset-preview">
+                        <div class="empty-preview">
+                            <div class="empty-icon">📋</div>
+                            <p>Загрузите Excel-файл для предпросмотра данных</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================ -->
+        <!-- ВКЛАДКА: ГРАФИКИ (аналог Explore в Superset)    -->
+        <!-- ================================================ -->
+        <div class="view" id="explore-view">
+            <div class="explore-toolbar">
+                <h2>📊 Графики</h2>
+                <button class="btn-primary" onclick="openNewChartEditor()">
+                    + Новый график
+                </button>
+            </div>
+            <!-- Галерея созданных графиков -->
+            <div id="chart-gallery">
+                <div class="empty-gallery">
+                    <div class="empty-icon">📈</div>
+                    <p>Графиков ещё нет.</p>
+                    <p>Загрузите датасет и нажмите "+ Новый график"</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================ -->
+        <!-- РЕДАКТОР ГРАФИКА (аналог Explore Superset)      -->
+        <!-- ================================================ -->
+        <div class="view" id="chart-editor-view">
+            <div class="chart-editor-view">
+                <div class="chart-editor-header">
+                    <h2 id="chart-editor-title">Создать график</h2>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn-secondary" onclick="cancelChartEditor()">
+                            Отмена
+                        </button>
+                        <button class="btn-primary" onclick="saveChartFromEditor()">
+                            💾 Сохранить график
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Тип графика -->
+                <div class="editor-section">
+                    <h3>Тип визуализации</h3>
+                    <div id="chart-type-selector">
+                        <!-- Кнопки типов графиков генерируются из charts_ui.js -->
+                    </div>
+                </div>
+
+                <!-- Название графика -->
+                <div class="editor-section">
+                    <h3>Настройки</h3>
+                    <div class="form-row">
+                        <label>Название графика</label>
+                        <input type="text" id="chart-title-input"
+                               value="Новый график" placeholder="Введите название">
+                    </div>
+                    <div class="form-row">
+                        <label>Ось X / Категории</label>
+                        <select id="chart-x-column">
+                            <option value="">-- Сначала загрузите датасет --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Метрики (ось Y) -->
+                <div class="editor-section">
+                    <h3>Метрики (ось Y)</h3>
+                    <div id="chart-y-columns">
+                        <div class="empty-list" style="color:#999; padding:8px;">
+                            Загрузите датасет для выбора метрик
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Агрегация -->
+                <div class="editor-section" id="chart-agg-row">
+                    <h3>Агрегация</h3>
+                    <div class="form-row">
+                        <label>
+                            <input type="checkbox" id="chart-use-agg" checked
+                                   onchange="toggleAggregation(this.checked)">
+                            Группировать данные
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <label>Функция агрегации</label>
+                        <select id="chart-agg-func">
+                            <option value="sum">Сумма (SUM)</option>
+                            <option value="avg">Среднее (AVG)</option>
+                            <option value="count">Количество (COUNT)</option>
+                            <option value="min">Минимум (MIN)</option>
+                            <option value="max">Максимум (MAX)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Внешний вид -->
+                <div class="editor-section">
+                    <h3>Внешний вид</h3>
+                    <div class="form-row" id="chart-grid-row">
+                        <label>
+                            <input type="checkbox" id="chart-show-grid" checked>
+                            Показывать сетку
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <label>
+                            <input type="checkbox" id="chart-show-legend" checked>
+                            Показывать легенду
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================ -->
+        <!-- ВКЛАДКА: ДАШБОРДЫ (аналог Dashboards Superset)  -->
+        <!-- ================================================ -->
+        <div class="view" id="dashboard-view">
+            <div class="dashboard-toolbar">
+                <h2 id="dashboard-title">Дашборд</h2>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:13px; color:#767676;">Колонок:</span>
+                    <div class="columns-selector">
+                        <button class="col-btn" onclick="setDashboardColumns(1)">1</button>
+                        <button class="col-btn active" onclick="setDashboardColumns(2)">2</button>
+                        <button class="col-btn" onclick="setDashboardColumns(3)">3</button>
+                        <button class="col-btn" onclick="setDashboardColumns(4)">4</button>
+                    </div>
+                </div>
+                <button class="btn-secondary" onclick="navigateTo('explore')"
+                        title="Перейти к графикам для добавления на дашборд">
+                    + Добавить графики
+                </button>
+            </div>
+            <!-- Сетка дашборда -->
+            <div id="dashboard-canvas">
+                <div class="empty-dashboard">
+                    <div class="empty-icon">📊</div>
+                    <p>Дашборд пуст.</p>
+                    <p>Перейдите в "Графики" и нажмите 📌 чтобы добавить</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬНОЕ ОКНО ЗАГРУЗКИ ДАТАСЕТА                             -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="upload-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>📂 Загрузить датасет</h2>
+            <button class="modal-close" onclick="closeUploadModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="upload-drop-zone-modal"
+                 onclick="document.getElementById('file-input-modal').click()"
+                 style="border:2px dashed #D7D7E4; border-radius:8px; padding:32px;
+                        text-align:center; cursor:pointer; background:#FAFAFA;">
+                <div style="font-size:48px; margin-bottom:12px;">📊</div>
+                <p><strong>Перетащите Excel-файл сюда</strong></p>
+                <p style="color:#767676; margin-top:8px;">или нажмите для выбора файла</p>
+                <p style="font-size:12px; margin-top:8px; color:#999;">
+                    Поддерживаются: .xlsx, .xls, .csv (до 50 МБ)
+                </p>
+            </div>
+            <input type="file" id="file-input-modal"
+                   accept=".xlsx,.xls,.csv"
+                   style="display:none"
+                   onchange="handleModalFileInput(event)">
+            <div id="upload-progress-msg"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeUploadModal()">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- КОНТЕЙНЕР УВЕДОМЛЕНИЙ                                        -->
+<!-- ============================================================ -->
+<div id="notifications"></div>
+
+<!-- ============================================================ -->
+<!-- СКРИПТЫ ПРИЛОЖЕНИЯ                                           -->
+<!-- ============================================================ -->
+<script src="dataset_logic.js"></script>
+<script src="dataset_ui.js"></script>
+<script src="charts_logic.js"></script>
+<script src="charts_ui.js"></script>
+<script src="dashboard_ui.js"></script>
+
+<script>
+// app.js — инициализация и маршрутизация приложения.
+// Точка входа, объединяет все модули.
+
+/**
+ * Текущий активный раздел навигации.
+ */
+var currentSection = 'datasets';
+
+/**
+ * Переходит к указанному разделу приложения.
+ * @param {string} section - Раздел: 'datasets', 'explore', 'dashboard'
+ */
+function navigateTo(section) {
+    currentSection = section;
+
+    // Обновляем кнопки навигации в шапке
+    var navBtns = document.querySelectorAll('.header-nav-btn');
+    for (var i = 0; i < navBtns.length; i++) {
+        navBtns[i].classList.remove('active');
+    }
+    var activeBtn = document.getElementById('nav-' + section);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Переключаем секции сайдбара
+    var sidebarSections = document.querySelectorAll('.sidebar-section');
+    for (var j = 0; j < sidebarSections.length; j++) {
+        sidebarSections[j].classList.remove('active');
+    }
+    var activeSidebar = document.getElementById('sidebar-' + section);
+    if (activeSidebar) activeSidebar.classList.add('active');
+
+    // Показываем нужный вид
+    if (section === 'datasets') {
+        showView('datasets-view');
+    } else if (section === 'explore') {
+        renderChartGallery();
+        showView('explore-view');
+    } else if (section === 'dashboard') {
+        renderDashboard();
+        showView('dashboard-view');
+    }
+}
+
+/**
+ * Показывает указанный вид и скрывает остальные.
+ * @param {string} viewId - ID элемента вида
+ */
+function showView(viewId) {
+    var views = document.querySelectorAll('.view');
+    for (var i = 0; i < views.length; i++) {
+        views[i].classList.remove('active');
+    }
+    var targetView = document.getElementById(viewId);
+    if (targetView) targetView.classList.add('active');
+}
+
+/**
+ * Обрабатывает выбор файла через обычный input на странице.
+ * @param {Event} event - Событие изменения input
+ */
+function handleFileInputChange(event) {
+    var file = event.target.files && event.target.files[0];
+    if (file) handleFileSelected(file);
+}
+
+/**
+ * Обрабатывает выбор файла в модальном окне.
+ * @param {Event} event - Событие изменения input
+ */
+function handleModalFileInput(event) {
+    var file = event.target.files && event.target.files[0];
+    if (file) {
+        closeUploadModal();
+        handleFileSelected(file);
+        navigateTo('datasets');
+    }
+}
+
+/**
+ * Переключает включение/выключение агрегации в редакторе.
+ * @param {boolean} enabled - Включить агрегацию?
+ */
+function toggleAggregation(enabled) {
+    var aggFuncRow = document.getElementById('chart-agg-func');
+    if (aggFuncRow) {
+        aggFuncRow.parentNode.style.opacity = enabled ? '1' : '0.4';
+        aggFuncRow.disabled = !enabled;
+    }
+}
+
+/**
+ * Отображает уведомление пользователю.
+ * @param {string} message - Текст уведомления
+ * @param {string} type - Тип: 'success', 'error', 'warning', 'info'
+ */
+function showNotification(message, type) {
+    var container = document.getElementById('notifications');
+    if (!container) return;
+
+    var icons = { success: '✓', error: '✗', warning: '⚠', info: 'ℹ' };
+    var el = document.createElement('div');
+    el.className = 'notification ' + (type || 'info');
+    el.innerHTML = '<span>' + (icons[type] || 'ℹ') + '</span> ' + escapeHtml(message);
+    container.appendChild(el);
+
+    // Автоматически убираем уведомление через 4 секунды
+    setTimeout(function() {
+        if (el.parentNode) el.parentNode.removeChild(el);
+    }, 4000);
+}
+
+/**
+ * Настраивает drag&drop для модального окна загрузки.
+ */
+function setupModalDragDrop() {
+    var dropZone = document.getElementById('upload-drop-zone-modal');
+    if (!dropZone) return;
+
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.style.borderColor = '#1FA8C9';
+        dropZone.style.background = 'rgba(31,168,201,0.05)';
+    });
+
+    dropZone.addEventListener('dragleave', function() {
+        dropZone.style.borderColor = '#D7D7E4';
+        dropZone.style.background = '#FAFAFA';
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.style.borderColor = '#D7D7E4';
+        dropZone.style.background = '#FAFAFA';
+        var files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            closeUploadModal();
+            handleFileSelected(files[0]);
+            navigateTo('datasets');
+        }
+    });
+}
+
+/**
+ * Закрывает модальное окно при клике вне его.
+ */
+function setupModalClickOutside() {
+    var modal = document.getElementById('upload-modal');
+    if (!modal) return;
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeUploadModal();
+    });
+}
+
+/**
+ * Инициализирует всё приложение при загрузке страницы.
+ */
+function initApp() {
+    // Инициализируем все модули
+    initDatasetUI();
+    initChartsUI();
+    initDashboardUI();
+
+    // Настраиваем взаимодействие с файлами
+    setupModalDragDrop();
+    setupModalClickOutside();
+
+    // Переходим на начальную страницу
+    navigateTo('datasets');
+
+    console.log('Excel BI инициализирован. Версия 1.0');
+}
+
+// Запуск приложения после загрузки DOM
+document.addEventListener('DOMContentLoaded', initApp);
+</script>
+
+</body>
+</html>
